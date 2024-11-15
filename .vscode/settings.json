@@ -1,0 +1,12 @@
+{
+    "files.eol": "\n",
+    "editor.tabSize": 2,
+    "files.insertFinalNewline": true,
+    "eslint.enable": true,
+    "eslint.workingDirectories": [
+        {
+            "mode": "auto"
+        }
+    ],
+    "typescript.preferences.importModuleSpecifier": "relative",
+}

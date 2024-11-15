@@ -1,0 +1,12 @@
+export enum DataType {
+  BOOLEAN = 0x0,
+  INT32 = 0x1,
+  INT64 = 0x2,
+  FLOAT = 0x3,
+  DOUBLE = 0x4,
+  TEXT = 0x5,
+  TIMESTAMP = 0x8,
+  DATE = 0x9,
+  BLOB = 0x0a,
+  STRING = 0x0b,
+}

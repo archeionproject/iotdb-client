@@ -1,0 +1,15 @@
+export enum Encoding {
+  PLAIN = 0,
+  DICTIONARY = 1,
+  RLE = 2,
+  DIFF = 3,
+  TS_2DIFF = 4,
+  BITMAP = 5,
+  GORILLA_V1 = 6,
+  REGULAR = 7,
+  GORILLA = 8,
+  ZIGZAG = 9,
+  CHIMP = 11,
+  SPRINTZ = 12,
+  RLBE = 13,
+}

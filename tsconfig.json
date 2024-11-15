@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",          
+    "module": "commonjs",
+    "outDir": "dist",
+    "declaration": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true, 
+    "strict": true,                 
+  },
+  "include": [
+    "src/**/*.ts", // Include all `.ts` files in "src".
+    "generated/**/*.d.ts" // Include generated `.d.ts` files for type-checking.
+  ],
+}
