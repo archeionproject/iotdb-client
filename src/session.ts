@@ -58,11 +58,20 @@ export class Session implements IIoTDBClient {
       tags = tags == null ? undefined : [tags as { [k: string]: string }];
     }
     if (!Array.isArray(encodings)) {
-      encodings = encodings == null ? [Encoding.PLAIN] : [encodings];
+      encodings =
+        encodings == null
+          ? new Array(paths.length).fill(Encoding.PLAIN, 0, paths.length)
+          : [encodings];
     }
     if (!Array.isArray(compressions)) {
       compressions =
-        compressions == null ? [Compression.UNCOMPRESSED] : [compressions];
+        compressions == null
+          ? new Array(paths.length).fill(
+              Compression.UNCOMPRESSED,
+              0,
+              paths.length,
+            )
+          : [compressions];
     }
 
     const response = await this.client.createMultiTimeseries({
