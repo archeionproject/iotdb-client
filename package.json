@@ -1,7 +1,7 @@
 {
   "name": "@archeion/iotdb-client",
   "description": "A client to interact with IoTDb in Nodejs applications",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
