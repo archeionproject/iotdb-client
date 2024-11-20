@@ -66,15 +66,15 @@ export class IoTDBClient implements IIoTDBClient {
     }
   }
 
-  public createTimeSeries(
-    path: string,
-    type: DataType,
-    tags?: { [k: string]: string },
-    encoding = Encoding.PLAIN,
-    compression = Compression.UNCOMPRESSED,
+  public async createTimeSeries(
+    paths: string | string[],
+    types: DataType | DataType[],
+    tags?: { [k: string]: string } | { [k: string]: string }[],
+    encodings?: Encoding | Encoding[],
+    compressions?: Compression | Compression[],
   ): Promise<void> {
     return this.$session((client) =>
-      client.createTimeSeries(path, type, tags, encoding, compression),
+      client.createTimeSeries(paths, types, tags, encodings, compressions),
     );
   }
 

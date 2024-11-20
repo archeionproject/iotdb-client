@@ -10,6 +10,20 @@ export interface IIoTDBClient {
     encoding?: Encoding,
     compression?: Compression,
   ): Promise<void>;
+  createTimeSeries(
+    paths: string[],
+    types: DataType[],
+    tags?: { [k: string]: string }[],
+    encodings?: Encoding[],
+    compressions?: Compression[],
+  ): Promise<void>;
+  createTimeSeries(
+    paths: string | string[],
+    types: DataType | DataType[],
+    tags?: { [k: string]: string } | { [k: string]: string }[],
+    encodings?: Encoding | Encoding[],
+    compressions?: Compression | Compression[],
+  ): Promise<void>;
 
   deleteTimeSeries(path: string): Promise<void>;
 

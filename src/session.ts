@@ -38,21 +38,40 @@ export class Session implements IIoTDBClient {
   }
 
   public async createTimeSeries(
-    path: string,
-    type: DataType,
-    tags?: { [k: string]: string },
-    encoding = Encoding.PLAIN,
-    compression = Compression.UNCOMPRESSED,
+    paths: string | string[],
+    types: DataType | DataType[],
+    tags?: { [k: string]: string } | { [k: string]: string }[],
+    encodings?: Encoding | Encoding[],
+    compressions?: Compression | Compression[],
   ): Promise<void> {
     this.assertOpenSession();
 
-    const response = await this.client.createTimeseries({
+    if (typeof paths === 'string') {
+      paths = [paths];
+    }
+
+    if (!Array.isArray(types)) {
+      types = [types];
+    }
+
+    if (!Array.isArray(tags)) {
+      tags = tags == null ? undefined : [tags as { [k: string]: string }];
+    }
+    if (!Array.isArray(encodings)) {
+      encodings = encodings == null ? [Encoding.PLAIN] : [encodings];
+    }
+    if (!Array.isArray(compressions)) {
+      compressions =
+        compressions == null ? [Compression.UNCOMPRESSED] : [compressions];
+    }
+
+    const response = await this.client.createMultiTimeseries({
       sessionId: this.id!,
-      path,
-      dataType: type,
-      tags,
-      encoding: encoding,
-      compressor: compression,
+      paths,
+      dataTypes: types,
+      tagsList: tags,
+      encodings: encodings,
+      compressors: compressions,
     });
 
     this.assertSuccess(response);
