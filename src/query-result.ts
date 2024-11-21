@@ -98,7 +98,7 @@ export class QueryResult {
     }
   }
 
-  public async *next(): Row {
+  public async *rows(): AsyncGenerator<Row, void, unknown> {
     let hasMore = true;
     while (hasMore) {
       hasMore = this.cachedResult.moreData;
