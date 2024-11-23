@@ -45,6 +45,11 @@ export class IoTDBClient implements IIoTDBClient {
     if (this.client == null) {
       throw new Error('Client not connected');
     }
+
+    if (this.connection?.connected == false) {
+      await this.$connect();
+    }
+
     const sessionOptions = {
       ...this.options,
       client_protocol: 2,
