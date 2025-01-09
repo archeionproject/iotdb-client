@@ -69,8 +69,6 @@ export function valuesToBuffer(
             throw new Error(
               `Can't encode this number to type ${DataType[codeType]}`,
             );
-
-            break;
         }
 
         result = Buffer.concat([result, payload]);
