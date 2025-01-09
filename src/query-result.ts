@@ -9,13 +9,13 @@ export class QueryResult {
   public static readonly TIMESTAMP_STR = 'Time';
   private static START_INDEX = 2;
 
-  private columTypeDeduplicatedList: any[];
-  private columNameList: string[] = [];
-  private columTypeList: DataType[] = [];
-  private columNameIndexMap: Record<string, number> = {};
+  private columnTypeDeduplicatedList: any[];
+  private columnNameList: string[] = [];
+  private columnTypeList: DataType[] = [];
+  private columnNameIndexMap: Record<string, number> = {};
   private queryId: Int64;
   private ignoreTimeStamp: boolean;
-  private columSize: number;
+  private columnSize: number;
   private cachedResult: Required<
     Pick<TSExecuteStatementResp, 'moreData' | 'queryDataSet'>
   >;
@@ -33,9 +33,9 @@ export class QueryResult {
     this.ignoreTimeStamp = query.ignoreTimeStamp ?? false;
 
     if (!query.ignoreTimeStamp) {
-      this.columNameList.push(QueryResult.TIMESTAMP_STR);
-      this.columTypeList.push(DataType.INT64);
-      this.columNameIndexMap[QueryResult.TIMESTAMP_STR] = 1;
+      this.columnNameList.push(QueryResult.TIMESTAMP_STR);
+      this.columnTypeList.push(DataType.INT64);
+      this.columnNameIndexMap[QueryResult.TIMESTAMP_STR] = 1;
     }
 
     if (query.columns == null) {
@@ -54,43 +54,43 @@ export class QueryResult {
     }
 
     this.queryId = query.queryId;
-    this.columSize = query.columns.length;
+    this.columnSize = query.columns.length;
     this.cachedResult = {
       moreData: query.moreData ?? false,
       queryDataSet: query.queryDataSet,
     };
 
     if (query.columnNameIndexMap != null) {
-      this.columTypeDeduplicatedList = new Array(
+      this.columnTypeDeduplicatedList = new Array(
         Object.keys(query.columnNameIndexMap).length,
       ).fill(null);
       for (let i = 0; i < query.columns.length; i++) {
         const name: string = query.columns[i];
-        this.columNameList.push(name);
-        this.columTypeList.push(
+        this.columnNameList.push(name);
+        this.columnTypeList.push(
           DataType[query.dataTypeList[i] as keyof typeof DataType],
         );
 
-        if (!(name in this.columNameIndexMap)) {
+        if (!(name in this.columnNameIndexMap)) {
           const index = query.columnNameIndexMap[name];
-          this.columNameIndexMap[name] = index + QueryResult.START_INDEX;
-          this.columTypeDeduplicatedList[index] =
+          this.columnNameIndexMap[name] = index + QueryResult.START_INDEX;
+          this.columnTypeDeduplicatedList[index] =
             DataType[query.dataTypeList[i] as keyof typeof DataType];
         }
       }
     } else {
       let index = QueryResult.START_INDEX;
-      this.columTypeDeduplicatedList = [];
+      this.columnTypeDeduplicatedList = [];
       for (let i = 0; i < query.columns.length; i++) {
         const name: string = query.columns[i];
-        this.columNameList.push(name);
-        this.columTypeList.push(
+        this.columnNameList.push(name);
+        this.columnTypeList.push(
           DataType[query.dataTypeList[i] as keyof typeof DataType],
         );
-        if (!(name in this.columNameIndexMap)) {
-          this.columNameIndexMap[name] = index;
+        if (!(name in this.columnNameIndexMap)) {
+          this.columnNameIndexMap[name] = index;
           index += 1;
-          this.columTypeDeduplicatedList.push(
+          this.columnTypeDeduplicatedList.push(
             DataType[query.dataTypeList[i] as keyof typeof DataType],
           );
         }
@@ -117,21 +117,21 @@ export class QueryResult {
         const date = new Date(Number(timestamp).valueOf()); // Convert BigInt to Number for Date compatibility
         result['time'] = date;
 
-        for (let ci = 0; ci < this.columSize; ci++) {
+        for (let ci = 0; ci < this.columnSize; ci++) {
           let columnName: string;
           if (this.ignoreTimeStamp) {
-            columnName = this.columNameList[ci];
+            columnName = this.columnNameList[ci];
           } else {
-            columnName = this.columNameList[ci + 1];
+            columnName = this.columnNameList[ci + 1];
           }
 
           const location =
-            this.columNameIndexMap[columnName] - QueryResult.START_INDEX;
+            this.columnNameIndexMap[columnName] - QueryResult.START_INDEX;
           if (location < 0) {
             continue;
           }
 
-          const dataType = this.columTypeDeduplicatedList[location];
+          const dataType = this.columnTypeDeduplicatedList[location];
           const valueBuffer =
             this.cachedResult.queryDataSet.valueList[location];
 
