@@ -1,3 +1,4 @@
+import { backOff } from 'exponential-backoff';
 import Int64 from 'node-int64';
 
 import { Client } from '../generated/IClientRPCService';
@@ -157,14 +158,29 @@ export class Session implements IIoTDBClient {
   ): Promise<QueryResult> {
     this.assertOpenSession();
 
-    const result = await this.client.executeQueryStatement({
-      sessionId: this.id!,
-      statementId: this.statementId!,
-      statement: query,
-      fetchSize: options.fetchSize,
-    });
+    const result = await backOff(
+      async () => {
+        const result = await this.client.executeQueryStatement({
+          sessionId: this.id!,
+          statementId: this.statementId!,
+          statement: query,
+          fetchSize: options.fetchSize,
+        });
 
-    this.assertSuccess(result.status);
+        this.assertSuccess(result.status);
+        return result;
+      },
+      {
+        delayFirstAttempt: false,
+        retry: async (err) => {
+          if (err instanceof IoTDBError && err.needRetry === true) {
+            this.statementId = await this.client.requestStatementId(this.id!);
+            return true;
+          }
+          return false;
+        },
+      },
+    );
 
     return new QueryResult(
       this.id!,
