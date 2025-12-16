@@ -171,7 +171,7 @@ export class Session implements IIoTDBClient {
         return result;
       },
       {
-        delayFirstAttempt: false,
+        jitter: 'full',
         retry: async (err) => {
           if (err instanceof IoTDBError && err.needRetry === true) {
             this.statementId = await this.client.requestStatementId(this.id!);
