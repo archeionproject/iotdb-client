@@ -83,7 +83,7 @@ export class IoTDBClient implements IIoTDBClient {
     );
   }
 
-  public deleteTimeSeries(path: string): Promise<void> {
+  public deleteTimeSeries(path: string | string[]): Promise<void> {
     return this.$session((client) => client.deleteTimeSeries(path));
   }
 

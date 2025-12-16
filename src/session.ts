@@ -87,12 +87,12 @@ export class Session implements IIoTDBClient {
     this.assertSuccess(response);
   }
 
-  public async deleteTimeSeries(path: string): Promise<void> {
+  public async deleteTimeSeries(path: string | string[]): Promise<void> {
     this.assertOpenSession();
 
     const response = await this.client.deleteTimeseries(
       this.id!,
-      path.split('.'),
+      Array.isArray(path) ? path : [path],
     );
 
     this.assertSuccess(response);

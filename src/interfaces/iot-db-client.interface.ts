@@ -25,7 +25,7 @@ export interface IIoTDBClient {
     compressions?: Compression | Compression[],
   ): Promise<void>;
 
-  deleteTimeSeries(path: string): Promise<void>;
+  deleteTimeSeries(path: string | string[]): Promise<void>;
 
   insertMeasurement<T extends DataType>(
     path: string,
