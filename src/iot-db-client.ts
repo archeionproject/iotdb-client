@@ -17,6 +17,10 @@ export class IoTDBClient implements IIoTDBClient {
   private client?: Client;
   private connection?: Connection;
 
+  public get connected(): boolean {
+    return this.connection != null && this.connection.connected;
+  }
+
   public constructor(
     private host: string,
     private port: number,
@@ -43,7 +47,7 @@ export class IoTDBClient implements IIoTDBClient {
     callback: (client: IIoTDBClient) => T | Promise<T>,
   ): Promise<T> {
     if (this.client == null) {
-      throw new Error('Client not connected');
+      throw new Error('Client is not connected');
     }
 
     if (this.connection?.connected == false) {
@@ -121,7 +125,7 @@ export class IoTDBClient implements IIoTDBClient {
 
   public async $disconnect(): Promise<void> {
     if (this.connection == null) {
-      throw new Error('Client not connected');
+      throw new Error('Client is not connected');
     }
 
     const connection = this.connection;
