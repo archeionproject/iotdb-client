@@ -4,6 +4,7 @@ import { Client } from '../generated/IClientRPCService';
 import { TSOpenSessionReq } from '../generated/client_types';
 import { TSStatus } from '../generated/common_types';
 import { Compression, DataType, Encoding } from './enums';
+import { IoTDBError } from './errors';
 import { IIoTDBClient } from './interfaces';
 import { QueryResult } from './query-result';
 import { AllowedValues, Value } from './types';
@@ -180,7 +181,7 @@ export class Session implements IIoTDBClient {
     const response = await this.client.closeSession({ sessionId: this.id! });
 
     if (response.code !== 200) {
-      throw new Error(`Failed closing session: ${response.message}`);
+      throw new IoTDBError(response);
     }
   }
 
@@ -192,7 +193,7 @@ export class Session implements IIoTDBClient {
 
   private assertSuccess(status: TSStatus): void {
     if (status.code != 200) {
-      throw new Error(`Request failed with message: ${status.message}`);
+      throw new IoTDBError(status);
     }
   }
 }
