@@ -2,10 +2,7 @@ import { setTimeout } from 'timers/promises';
 
 import { cliExec, timeseriesExists } from '../utils/database';
 import { getClient } from '../utils/services';
-import {
-  randomProperty,
-  randomTimeSeries,
-} from '../utils/timeseries';
+import { randomProperty, randomTimeSeries } from '../utils/timeseries';
 
 describe('Raw Operations', () => {
   const client = getClient();
@@ -25,7 +22,7 @@ describe('Raw Operations', () => {
       await client.rawUpdate(createStatement);
 
       await expect(timeseriesExists(testTimeseries)).resolves.toBe(true);
-    })
+    });
   });
 
   describe('query operations', () => {
@@ -57,6 +54,59 @@ describe('Raw Operations', () => {
 
         expect(results).toEqual([25.5, 26.0]);
       });
+    });
+
+    it('should read text columns and nulls in the right place', async () => {
+      const device = randomTimeSeries();
+      const statements = [
+        `CREATE TIMESERIES ${device}.reading WITH DATATYPE=TEXT, ENCODING=PLAIN`,
+        `CREATE TIMESERIES ${device}.txHash WITH DATATYPE=TEXT, ENCODING=PLAIN`,
+        `CREATE TIMESERIES ${device}.temperature WITH DATATYPE=DOUBLE, ENCODING=PLAIN`,
+        `CREATE TIMESERIES ${device}.enabled WITH DATATYPE=BOOLEAN, ENCODING=PLAIN`,
+        `INSERT INTO ${device}(timestamp, reading, txHash, temperature) VALUES (${time1}, 'first', '0xabc', 1.5)`,
+        `INSERT INTO ${device}(timestamp, reading, enabled) VALUES (${time2}, 'second', true)`,
+        `INSERT INTO ${device}(timestamp, reading, txHash, temperature, enabled) VALUES (${time2 + 1000}, 'third', '0xdef', 3.5, false)`,
+      ];
+      for (const statement of statements) {
+        await client.rawUpdate(statement);
+      }
+
+      const rows = await client.$session(async (s) => {
+        await using queryResult = await s.rawQuery(
+          `SELECT reading, txHash, temperature, enabled FROM ${device};`,
+          { fetchSize: 5000 },
+        );
+
+        const results = [];
+        for await (const r of queryResult.rows()) {
+          results.push(r);
+        }
+        return results;
+      });
+
+      expect(rows).toEqual([
+        {
+          time: new Date(time1),
+          [`${device}.reading`]: 'first',
+          [`${device}.txHash`]: '0xabc',
+          [`${device}.temperature`]: 1.5,
+          [`${device}.enabled`]: undefined,
+        },
+        {
+          time: new Date(time2),
+          [`${device}.reading`]: 'second',
+          [`${device}.txHash`]: undefined,
+          [`${device}.temperature`]: undefined,
+          [`${device}.enabled`]: true,
+        },
+        {
+          time: new Date(time2 + 1000),
+          [`${device}.reading`]: 'third',
+          [`${device}.txHash`]: '0xdef',
+          [`${device}.temperature`]: 3.5,
+          [`${device}.enabled`]: false,
+        },
+      ]);
     });
 
     it('should handle multiple parallel sessions with multiple queries', async () => {

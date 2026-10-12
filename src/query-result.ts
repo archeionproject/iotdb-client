@@ -13,14 +13,13 @@ export class QueryResult implements AsyncDisposable {
   private columnNameList: string[] = [];
   private columnTypeList: DataType[] = [];
   private columnNameIndexMap: Record<string, number> = {};
+  // Distinct columns to decode in each row, with the position of their buffers in the data set
+  private columns: { name: string; location: number; dataType: DataType }[] =
+    [];
   private queryId: Int64;
-  private ignoreTimeStamp: boolean;
-  private columnSize: number;
   private cachedResult: Required<
     Pick<TSExecuteStatementResp, 'moreData' | 'queryDataSet'>
   >;
-  // Indexes used to read column values when there is nulls
-  private columnCursors: Record<string, number> = {};
   private closed = false;
 
   public constructor(
@@ -30,8 +29,6 @@ export class QueryResult implements AsyncDisposable {
     private fetchSize: number,
     private client: Client,
   ) {
-    this.ignoreTimeStamp = query.ignoreTimeStamp ?? false;
-
     if (!query.ignoreTimeStamp) {
       this.columnNameList.push(QueryResult.TIMESTAMP_STR);
       this.columnTypeList.push(DataType.INT64);
@@ -54,7 +51,6 @@ export class QueryResult implements AsyncDisposable {
     }
 
     this.queryId = query.queryId;
-    this.columnSize = query.columns.length;
     this.cachedResult = {
       moreData: query.moreData ?? false,
       queryDataSet: query.queryDataSet,
@@ -96,6 +92,19 @@ export class QueryResult implements AsyncDisposable {
         }
       }
     }
+
+    // Duplicated columns share the same value buffer, so each one must be read once per row.
+    // Time is skipped as it has its own buffer
+    for (const [name, index] of Object.entries(this.columnNameIndexMap)) {
+      const location = index - QueryResult.START_INDEX;
+      if (location >= 0) {
+        this.columns.push({
+          name,
+          location,
+          dataType: this.columnTypeDeduplicatedList[location],
+        });
+      }
+    }
   }
 
   public async *rows(): AsyncGenerator<Row, void, unknown> {
@@ -103,136 +112,84 @@ export class QueryResult implements AsyncDisposable {
     try {
       while (hasMore) {
         hasMore = this.cachedResult.moreData;
-        const result: Row = {};
+        const { time, valueList, bitmapList } = this.cachedResult.queryDataSet;
 
         // Calculate number of BigInt64 values
-        const count = Math.floor(
-          this.cachedResult.queryDataSet.time.length / 8,
-        );
-        // Read each BigInt64 and convert to Date
-        let bufferOffset = 0;
+        const count = Math.floor(time.length / 8);
+        // Each value buffer only holds the non-null values of its column, packed one after
+        // the other, so every column needs its own read position
+        const offsets = new Array<number>(valueList.length).fill(0);
         for (let i = 0; i < count; i++) {
-          const timestamp = this.cachedResult.queryDataSet.time.readBigInt64BE(
-            i * 8,
-          );
+          const timestamp = time.readBigInt64BE(i * 8);
 
           // Convert BigInt timestamp to Date
           const date = new Date(Number(timestamp).valueOf()); // Convert BigInt to Number for Date compatibility
-          result['time'] = date;
+          const result: Row = { time: date };
 
-          for (let ci = 0; ci < this.columnSize; ci++) {
-            let columnName: string;
-            if (this.ignoreTimeStamp) {
-              columnName = this.columnNameList[ci];
-            } else {
-              columnName = this.columnNameList[ci + 1];
-            }
+          for (const { name: columnName, location, dataType } of this.columns) {
+            const valueBuffer = valueList[location];
+            let offset = offsets[location];
 
-            const location =
-              this.columnNameIndexMap[columnName] - QueryResult.START_INDEX;
-            if (location < 0) {
+            if (this.isNull(bitmapList[location], valueBuffer, offset, i)) {
+              result[columnName] = undefined;
               continue;
             }
 
-            const dataType = this.columnTypeDeduplicatedList[location];
-            const valueBuffer =
-              this.cachedResult.queryDataSet.valueList[location];
-
-            const valueBufferLen = valueBuffer.length;
-            let index;
-
             switch (dataType) {
               case DataType.DOUBLE:
-                if (i >= valueBufferLen / 8) {
-                  result[columnName] = undefined;
-                  break;
-                }
-                result[columnName] = valueBuffer.readDoubleBE(i * 8);
+                result[columnName] = valueBuffer.readDoubleBE(offset);
+                offset += 8;
                 break;
               case DataType.FLOAT:
-                if (i >= valueBufferLen / 4) {
-                  result[columnName] = undefined;
-                  break;
-                }
-
-                result[columnName] = valueBuffer.readFloatBE(i * 4);
+                result[columnName] = valueBuffer.readFloatBE(offset);
+                offset += 4;
                 break;
               case DataType.BOOLEAN:
-                index = this.getIndex(
-                  valueBufferLen,
-                  count,
-                  i,
-                  columnName,
-                  this.cachedResult.queryDataSet.bitmapList[location],
-                );
-                if (index < 0) {
-                  result[columnName] = undefined;
-                  break;
-                }
-
-                result[columnName] = valueBuffer.readUInt8(index) > 0;
+                result[columnName] = valueBuffer.readUInt8(offset) > 0;
+                offset += 1;
                 break;
               case DataType.INT32:
-                if (i >= valueBufferLen) {
-                  result[columnName] = undefined;
-                  break;
-                }
-                result[columnName] = valueBuffer.readInt32BE(i * 4);
+                result[columnName] = valueBuffer.readInt32BE(offset);
+                offset += 4;
                 break;
               case DataType.DATE:
-                if (i >= valueBufferLen) {
-                  result[columnName] = undefined;
-                  break;
-                }
                 // TODO: convert to date?
-                result[columnName] = valueBuffer.readInt32BE(i * 4);
+                result[columnName] = valueBuffer.readInt32BE(offset);
+                offset += 4;
                 break;
               case DataType.INT64:
-                if (i >= valueBufferLen) {
-                  result[columnName] = undefined;
-                  break;
-                }
-                result[columnName] = valueBuffer.readBigInt64BE(i * 8);
+                result[columnName] = valueBuffer.readBigInt64BE(offset);
+                offset += 8;
                 break;
               case DataType.TIMESTAMP:
-                if (i >= valueBufferLen) {
-                  result[columnName] = undefined;
-                  break;
-                }
                 result[columnName] = new Date(
-                  Number(valueBuffer.readBigInt64BE(i * 8)).valueOf(),
+                  Number(valueBuffer.readBigInt64BE(offset)).valueOf(),
                 );
+                offset += 8;
                 break;
               case DataType.TEXT:
               case DataType.STRING: {
-                if (valueBufferLen === 0) {
-                  result[columnName] = undefined;
-                  break;
-                }
-                const length = valueBuffer.readUInt32BE(bufferOffset);
+                // Values are prefixed by their length as a 4 bytes integer
+                const length = valueBuffer.readUInt32BE(offset);
                 result[columnName] = valueBuffer
-                  .subarray(bufferOffset + 4, bufferOffset + 4 + length)
+                  .subarray(offset + 4, offset + 4 + length)
                   .toString('utf-8');
-                bufferOffset += 4 + length;
+                offset += 4 + length;
                 break;
               }
               case DataType.BLOB: {
-                if (valueBufferLen === 0) {
-                  result[columnName] = undefined;
-                  break;
-                }
-
-                const length = valueBuffer.readUInt32BE(bufferOffset);
+                const length = valueBuffer.readUInt32BE(offset);
                 result[columnName] = valueBuffer.subarray(
-                  bufferOffset + 4,
-                  bufferOffset + 4 + length,
+                  offset + 4,
+                  offset + 4 + length,
                 );
-                bufferOffset += 4 + length;
+                offset += 4 + length;
                 break;
               }
               default:
                 throw new Error(`Unsupported data type ${dataType}.`);
             }
+            offsets[location] = offset;
           }
           yield result;
         }
@@ -274,33 +231,19 @@ export class QueryResult implements AsyncDisposable {
     return this.close();
   }
 
-  private getIndex(
-    valueBufferLen: number,
-    totalLen: number,
-    currentIndex: number,
-    column: string,
-    bitmap?: Buffer,
-  ): number {
-    if (valueBufferLen > 0 && valueBufferLen != totalLen && bitmap != null) {
-      // Bitmap mode; there are nulls around
-      const mask = bitmap[Math.floor(currentIndex / 8)];
-      // 7 - bitPosition because values are BE
-      const isThere = (mask & (1 << (7 - (currentIndex % 8)))) !== 0;
-
-      if (!isThere) {
-        return -1;
-      }
-
-      const index = (this.columnCursors[column] ?? -1) + 1;
-      this.columnCursors[column] = index;
-
-      return index;
+  private isNull(
+    bitmap: Buffer | undefined,
+    valueBuffer: Buffer,
+    offset: number,
+    row: number,
+  ): boolean {
+    if (bitmap == null) {
+      // Without a bitmap we can only detect trailing nulls
+      return offset >= valueBuffer.length;
     }
 
-    if (currentIndex >= valueBufferLen) {
-      return -1;
-    }
-
-    return currentIndex;
+    const mask = bitmap[Math.floor(row / 8)];
+    // 7 - bitPosition because values are BE
+    return (mask & (1 << (7 - (row % 8)))) === 0;
   }
 }
