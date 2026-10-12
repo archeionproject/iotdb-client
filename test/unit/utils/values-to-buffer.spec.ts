@@ -2,14 +2,26 @@ import Int64 from 'node-int64';
 
 import { DataType } from '../../../src/enums';
 import { valuesToBuffer } from '../../../src/utils';
+import {
+  binaryBuffer,
+  booleanBuffer,
+  floatBuffer,
+  int32Buffer,
+  int64Buffer,
+  textBuffer,
+} from '../../utils/query-data-set';
+
+// Each value is sent as its type code followed by its encoding
+function typedValue(type: DataType, value: Buffer): Buffer {
+  return Buffer.concat([Buffer.from([type]), value]);
+}
 
 describe('valuesToBuffer', () => {
   it('should convert boolean value to buffer with DataType.BOOLEAN code', () => {
     const values = [true];
     const types = [DataType.BOOLEAN];
     const result = valuesToBuffer(values, types);
-    expect(result.readUInt8(0)).toBe(DataType.BOOLEAN);
-    expect(result.readUInt8(1)).toBe(1);
+    expect(result).toEqual(typedValue(DataType.BOOLEAN, booleanBuffer(true)));
   });
 
   it('should throw error for mismatched array lengths', () => {
@@ -24,15 +36,13 @@ describe('valuesToBuffer', () => {
     const values = [42];
     const types = [DataType.INT32];
     const result = valuesToBuffer(values, types);
-    expect(result.readUInt8(0)).toBe(DataType.INT32);
-    expect(result.readInt32BE(1)).toBe(42);
+    expect(result).toEqual(typedValue(DataType.INT32, int32Buffer(42)));
   });
 
   it('should convert number to FLOAT by default if no type specified', () => {
     const values = [3.14];
     const result = valuesToBuffer(values);
-    expect(result.readUInt8(0)).toBe(DataType.FLOAT);
-    expect(result.readFloatBE(1)).toBeCloseTo(3.14, 5);
+    expect(result).toEqual(typedValue(DataType.FLOAT, floatBuffer(3.14)));
   });
 
   it('should throw error for number with incompatible type (e.g., TEXT)', () => {
@@ -47,9 +57,7 @@ describe('valuesToBuffer', () => {
     const values = ['hello'];
     const types = [DataType.STRING];
     const result = valuesToBuffer(values, types);
-    expect(result.readUInt8(0)).toBe(DataType.STRING);
-    expect(result.readUInt32BE(1)).toBe(5);
-    expect(result.toString('utf-8', 5)).toBe('hello');
+    expect(result).toEqual(typedValue(DataType.STRING, textBuffer('hello')));
   });
 
   it('should throw error for string with incompatible type (e.g., BOOLEAN)', () => {
@@ -63,8 +71,9 @@ describe('valuesToBuffer', () => {
   it('should handle bigint as INT64', () => {
     const values = [BigInt(123456789012345)];
     const result = valuesToBuffer(values);
-    expect(result.readUInt8(0)).toBe(DataType.INT64);
-    expect(result.readBigInt64BE(1)).toBe(BigInt(123456789012345));
+    expect(result).toEqual(
+      typedValue(DataType.INT64, int64Buffer(BigInt(123456789012345))),
+    );
   });
 
   it('should handle Date object with TIMESTAMP by default', () => {
@@ -79,17 +88,16 @@ describe('valuesToBuffer', () => {
     const int64Value = new Int64(123456789);
     const values = [int64Value];
     const result = valuesToBuffer(values);
-    expect(result.readUInt8(0)).toBe(DataType.INT64);
-    expect(result.slice(1).equals(int64Value.buffer)).toBe(true);
+    expect(result).toEqual(typedValue(DataType.INT64, int64Buffer(123456789)));
   });
 
   it('should handle Buffer as BLOB with correct length', () => {
     const bufferValue = Buffer.from([0x01, 0x02, 0x03, 0x04]);
     const values = [bufferValue];
     const result = valuesToBuffer(values);
-    expect(result.readUInt8(0)).toBe(DataType.BLOB);
-    expect(result.readUInt32BE(1)).toBe(bufferValue.length);
-    expect(result.slice(5).equals(bufferValue)).toBe(true);
+    expect(result).toEqual(
+      typedValue(DataType.BLOB, binaryBuffer(bufferValue)),
+    );
   });
 
   it('should throw error for mismatched types in array', () => {
