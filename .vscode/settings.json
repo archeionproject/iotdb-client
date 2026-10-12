@@ -9,4 +9,5 @@
         }
     ],
     "typescript.preferences.importModuleSpecifier": "relative",
+    "js/ts.tsdk.path": "node_modules\\typescript\\lib",
 }
