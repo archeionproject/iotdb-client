@@ -57,7 +57,8 @@ export function valuesToBuffer(
             payload.writeInt32BE(value as number, 1);
             break;
           case DataType.INT64:
-            payload.writeBigInt64BE(value as bigint, 1);
+            // Throws if the number is not an integer
+            payload.writeBigInt64BE(BigInt(value as number), 1);
             break;
           case DataType.FLOAT:
             payload.writeFloatBE(value as number, 1);

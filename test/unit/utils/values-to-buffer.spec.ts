@@ -39,6 +39,21 @@ describe('valuesToBuffer', () => {
     expect(result).toEqual(typedValue(DataType.INT32, int32Buffer(42)));
   });
 
+  it('should convert number to INT64 if suggested type is INT64', () => {
+    const values = [-42];
+    const types = [DataType.INT64];
+    const result = valuesToBuffer(values, types);
+    expect(result).toEqual(typedValue(DataType.INT64, int64Buffer(-42)));
+  });
+
+  it('should throw error for non integer number with INT64 type', () => {
+    const values = [4.2];
+    const types = [DataType.INT64];
+    expect(() => valuesToBuffer(values, types)).toThrow(
+      'cannot be converted to a BigInt because it is not an integer',
+    );
+  });
+
   it('should convert number to FLOAT by default if no type specified', () => {
     const values = [3.14];
     const result = valuesToBuffer(values);
