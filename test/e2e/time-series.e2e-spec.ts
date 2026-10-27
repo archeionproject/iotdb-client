@@ -89,13 +89,16 @@ describe('Time Series', () => {
     );
   });
 
-  it('should throw if client is not connected', async () => {
+  it('should connect on demand', async () => {
     const client = getClient();
+    const path = randomTimeSeriesPath();
 
     expect(client.connected).toBe(false);
 
-    await expect(
-      client.createTimeSeries(randomTimeSeriesPath(), DataType.FLOAT),
-    ).rejects.toThrow(/Client is not connected/gm);
+    await client.createTimeSeries(path, DataType.FLOAT);
+
+    expect(client.connected).toBe(true);
+    await expect(timeseriesExists(path)).resolves.toBe(true);
+    await client.$disconnect();
   });
 });

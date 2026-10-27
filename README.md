@@ -106,10 +106,10 @@ const client = new IoTDBClient(host, port, { username, password, zoneId, maxConn
 ### Core Methods
 
 #### `$connect()`
-Connect to the IoTDB server.
+Optional, sessions connect on demand. Opens and closes a session to check that the server is reachable and the credentials are valid, so the application can fail fast at startup.
 
 #### `$disconnect()`
-Disconnect from the server gracefully.
+Close all the connections. Later calls connect again on demand.
 
 #### `createTimeSeries(path, type, tags?, encoding?, compression?)`
 Creates a time series with the specified properties.

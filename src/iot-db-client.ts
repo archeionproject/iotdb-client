@@ -8,7 +8,6 @@ import { AllowedValues, Value } from './types';
 
 export class IoTDBClient implements IIoTDBClient {
   private pool: ConnectionPool;
-  private initialized = false;
 
   public get connected(): boolean {
     return this.pool.connected;
@@ -26,18 +25,17 @@ export class IoTDBClient implements IIoTDBClient {
     this.pool = new ConnectionPool(host, port, options.maxConnections);
   }
 
+  /**
+   * Optional, sessions connect on demand. Opens and closes a session to fail
+   * fast when the server is unreachable or the credentials are wrong.
+   */
   public async $connect(): Promise<void> {
-    this.pool.release(await this.pool.acquire());
-    this.initialized = true;
+    await this.$session(() => undefined);
   }
 
   public async $session<T>(
     callback: (client: IIoTDBClient) => T | Promise<T>,
   ): Promise<T> {
-    if (!this.initialized) {
-      throw new Error('Client is not connected');
-    }
-
     const sessionOptions = {
       ...this.options,
       client_protocol: 2,
@@ -110,10 +108,6 @@ export class IoTDBClient implements IIoTDBClient {
   }
 
   public async $disconnect(): Promise<void> {
-    if (!this.initialized) {
-      throw new Error('Client is not connected');
-    }
-
     await this.pool.disconnect();
   }
 }
