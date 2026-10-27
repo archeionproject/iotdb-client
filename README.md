@@ -109,7 +109,7 @@ const client = new IoTDBClient(host, port, { username, password, zoneId, maxConn
 Optional, sessions connect on demand. Opens and closes a session to check that the server is reachable and the credentials are valid, so the application can fail fast at startup.
 
 #### `$disconnect()`
-Close all the connections. Later calls connect again on demand.
+Close all the connections, sessions still running fail. Later calls connect again on demand.
 
 #### `createTimeSeries(path, type, tags?, encoding?, compression?)`
 Creates a time series with the specified properties.

@@ -6,6 +6,7 @@ import {
 } from 'thrift';
 
 import { Client } from '../generated/IClientRPCService';
+import { createClientProxy } from './thrift-client-proxy';
 
 export interface PooledConnection {
   connection: Connection;
@@ -84,7 +85,10 @@ export class ConnectionPool {
     const connection = createConnection(this.host, this.port, {
       transport: TFramedTransport,
     });
-    const pooled = { connection, client: createClient(Client, connection) };
+    const pooled = {
+      connection,
+      client: createClientProxy(connection, createClient(Client, connection)),
+    };
 
     return new Promise((resolve, reject) => {
       connection.once('error', reject);

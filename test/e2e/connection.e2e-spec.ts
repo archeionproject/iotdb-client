@@ -34,4 +34,27 @@ describe('Connection Lifecycle', () => {
 
     await expect(client.$disconnect()).resolves.toBeUndefined();
   });
+
+  it('should fail running sessions on disconnect', async () => {
+    const client = getClient();
+
+    const session = client.$session(async (s) => {
+      const query = s.rawQuery('show version', { fetchSize: 10 });
+      await client.$disconnect();
+      await query;
+    });
+
+    await expect(session).rejects.toThrow(/IoTDB connection closed/);
+  });
+
+  it('should fail calls made after disconnect', async () => {
+    const client = getClient();
+
+    const session = client.$session(async (s) => {
+      await client.$disconnect();
+      await s.rawUpdate('show version');
+    });
+
+    await expect(session).rejects.toThrow(/IoTDB connection closed/);
+  });
 });
