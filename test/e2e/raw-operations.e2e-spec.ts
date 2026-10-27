@@ -38,7 +38,7 @@ describe('Raw Operations', () => {
     }, 15000);
 
     it('should execute a raw query and iterate over results', async () => {
-      client.$session(async (s) => {
+      await client.$session(async (s) => {
         await using queryResult = await s.rawQuery(
           `SELECT ${testProperty} FROM ${testTimeseries};`,
           {
