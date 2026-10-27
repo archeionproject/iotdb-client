@@ -111,9 +111,12 @@ describe('Raw Operations', () => {
 
     it('should handle multiple parallel sessions with multiple queries', async () => {
       // See https://github.com/archeionproject/iotdb-client/issues/1
+      // Allow all the sessions to run at the same time
+      const parallelClient = getClient({ maxConnections: 100 });
+      await parallelClient.$connect();
       const promises = [];
       for (let i = 0; i < 100; i++) {
-        const p = client.$session(async (s) => {
+        const p = parallelClient.$session(async (s) => {
           await using countResult = await s.rawQuery(
             `select count(${testProperty}) from  ${testTimeseries} ;`,
             { fetchSize: 1 },
@@ -140,6 +143,7 @@ describe('Raw Operations', () => {
         promises.push(p);
       }
       await Promise.all(promises);
+      await parallelClient.$disconnect();
     });
   });
 });

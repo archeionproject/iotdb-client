@@ -1,57 +1,41 @@
-import {
-  Connection,
-  TFramedTransport,
-  createClient,
-  createConnection,
-} from 'thrift';
-
-import { Client } from '../generated/IClientRPCService';
 import { TSOpenSessionReq } from '../generated/client_types';
+import { ConnectionPool } from './connection-pool';
 import { Compression, DataType, Encoding } from './enums';
-import { IIoTDBClient } from './interfaces';
+import { IIoTDBClient, IoTDBPoolOptions } from './interfaces';
 import { QueryResult } from './query-result';
 import { Session } from './session';
 import { AllowedValues, Value } from './types';
 
 export class IoTDBClient implements IIoTDBClient {
-  private client?: Client;
-  private connection?: Connection;
+  private pool: ConnectionPool;
+  private initialized = false;
 
   public get connected(): boolean {
-    return this.connection != null && this.connection.connected;
+    return this.pool.connected;
   }
 
   public constructor(
-    private host: string,
-    private port: number,
+    host: string,
+    port: number,
     private options: Pick<
       TSOpenSessionReq,
       'zoneId' | 'username' | 'password'
-    > = { zoneId: 'UTC+1', username: 'root' },
-  ) {}
+    > &
+      IoTDBPoolOptions = { zoneId: 'UTC+1', username: 'root' },
+  ) {
+    this.pool = new ConnectionPool(host, port, options.maxConnections);
+  }
 
   public async $connect(): Promise<void> {
-    const connection = createConnection(this.host, this.port, {
-      transport: TFramedTransport,
-    });
-    this.connection = connection;
-    this.client = createClient(Client, connection);
-
-    return new Promise((resolve, reject) => {
-      connection.once('connect', resolve);
-      connection.once('error', reject);
-    });
+    this.pool.release(await this.pool.acquire());
+    this.initialized = true;
   }
 
   public async $session<T>(
     callback: (client: IIoTDBClient) => T | Promise<T>,
   ): Promise<T> {
-    if (this.client == null) {
+    if (!this.initialized) {
       throw new Error('Client is not connected');
-    }
-
-    if (this.connection?.connected == false) {
-      await this.$connect();
     }
 
     const sessionOptions = {
@@ -63,15 +47,17 @@ export class IoTDBClient implements IIoTDBClient {
       },
     };
 
-    const session = new Session(sessionOptions, this.client);
-    await session.open();
+    const pooled = await this.pool.acquire();
     try {
-      const result = await callback(session);
-      return result;
-    } catch (error) {
-      throw error;
+      const session = new Session(sessionOptions, pooled.client);
+      await session.open();
+      try {
+        return await callback(session);
+      } finally {
+        await session.close();
+      }
     } finally {
-      await session.close();
+      this.pool.release(pooled);
     }
   }
 
@@ -124,16 +110,10 @@ export class IoTDBClient implements IIoTDBClient {
   }
 
   public async $disconnect(): Promise<void> {
-    if (this.connection == null) {
+    if (!this.initialized) {
       throw new Error('Client is not connected');
     }
 
-    const connection = this.connection;
-    const promise = new Promise<void>((resolve, reject) => {
-      connection.once('close', resolve);
-      connection.once('error', reject);
-    });
-    this.connection.destroy();
-    return promise;
+    await this.pool.disconnect();
   }
 }

@@ -1,4 +1,4 @@
-import { IoTDBClient } from '../../src';
+import { IoTDBClient, IoTDBPoolOptions } from '../../src';
 import {
   DATABASE_HOST,
   DATABASE_PASSWORD,
@@ -6,11 +6,12 @@ import {
   DATABASE_USERNAME,
 } from './constants';
 
-export function getClient(): IoTDBClient {
+export function getClient(poolOptions?: IoTDBPoolOptions): IoTDBClient {
   return new IoTDBClient(DATABASE_HOST, DATABASE_PORT, {
     zoneId: 'UTC+1',
     username: DATABASE_USERNAME,
     password: DATABASE_PASSWORD,
+    ...poolOptions,
   });
 }
 

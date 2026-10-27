@@ -94,12 +94,12 @@ main().catch((err) => console.error('Unexpected Error:', err));
 ### Client Initialization
 
 ```typescript
-const client = new IoTDBClient(host, port, { username, password, zoneId });
+const client = new IoTDBClient(host, port, { username, password, zoneId, maxConnections });
 ```
 
 - `host`: Hostname or IP address of the IoTDB server.
 - `port`: Port number (default: 6667).
-- `options`: Optional settings like username, password, and time zone.
+- `options`: Optional settings like username, password, time zone, and connection pool size. IoTDB binds a session to its connection, so each session running at the same time uses its own connection; connections are reused once their session is closed. `maxConnections` caps how many sessions run at once (default: 10), further sessions wait for a running one to finish.
 
 ---
 
